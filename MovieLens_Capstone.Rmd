@@ -1,0 +1,2048 @@
+
+---
+output:
+  pdf_document:
+    df_print: kable
+    fig_crop: no
+    latex_engine: xelatex
+    number_sections: true
+geometry: "top=25mm, bottom=25mm, left=25mm, right=25mm, heightrounded"
+highlight-style: tango
+linkcolor: black
+urlcolor: blue
+mainfont: Calibri
+fontsize: 12pt
+sansfont: Verdana
+monofont: "Courier New"
+documentclass: report
+header-includes:
+  - \usepackage[document]{ragged2e}
+  - \usepackage{float}
+  - \usepackage{hyperref}
+  - \hypersetup{colorlinks=true, linkcolor=black, urlcolor=blue}
+  - \AtBeginDocument{\RaggedRight}
+---
+
+\begin{titlepage}
+    \vspace*{5cm}
+    \centering
+    {\LARGE MOVIE RECOMMENDATION SYSTEM \par}
+    \vspace{1cm}
+    {\large HarvardX Data Science Certificate PH125.9X – Capstone \par}
+    \vspace{1cm}
+    {\large Juan Carlos Lopez \par}
+    \vspace{1cm}
+    {\large 16/10/2024 \par}
+\end{titlepage}
+\newpage
+\tableofcontents
+\newpage
+\RaggedRight
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if(!require(kableExtra)) {
+    install.packages("kableExtra", repos = "http://cran.us.r-project.org")
+    library(kableExtra)
+}
+```
+
+# **INTRODUCTION**
+This project is developed within the framework of the HarvardX course PH125.9x - Capstone - Movielens Project and aims to develop a film recommendation system using a dataset.
+
+Generally speaking, a recommendation system is a technology that seeks to anticipate the preference or valuation that a user could assign to an item or product, using specialized algorithms. These systems are applied in a wide variety of fields: Social networks, entertainment, e-commerce, news, among others.
+
+In the specific case of film recommendation systems, it is a technological tool created to suggest films to users, based on several factors.
+
+ It mainly serves to:
+
+* Optimisation of the user experience: by offering appropriate suggestions, they increase user satisfaction and involvement.
+
+* Information organisation: they facilitate the management of information overload, selecting what is most relevant for each user and reducing their search time.
+
+* Retention: they keep users interested and active on a platform or service.
+
+* Customisation: tailor the content or products displayed according to the user's individual tastes.
+
+* Exploration: help users discover new items that might interest them, but that they might not have found on their own.
+
+* Catalogue optimisation: enables streaming services to highlight their content more efficiently.
+
+* For companies, information from these recommender systems can be very useful when deciding on the type of content to produce, based on historical data provided by their customers. A representative example of this application was given when Netflix acknowledged that it had used this type of information in the decision process to produce the series ‘House of Cards’. (although the Movielens dataset only includes information on films, in practice it also collects information on TV series).
+
+
+## **Objective**
+The goal of this project is to create a movie recommendation system based on the MovieLens 10M dataset.  
+
+The model to be developed must achieve a Root Mean Square Error (RMSE) < 0.8649.
+
+
+## **Dataset Description**
+[MovieLens] (https://movielens.org/) is an online platform developed by GroupLens Research (https://grouplens.org/) at the University of Minnesota, which provides a widely-used database for recommendation system research, as well as personalized movie recommendations to its online users.  
+
+They have developed different versions of their dataset, with MovieLens 10M (https://grouplens.org/datasets/movielens/10m/) being the one used in this project. This dataset was published in 2009 and contains approximately 10 million ratings, made by about 72,000 users for 10,000 movies.
+
+## **Project Phases**
+The steps to follow will be, in summary:	
+
+* Download the MovieLens 10M dataset, which contains information about movie ratings given by a large number of users.
+
+* Split the original dataset into two subsets, using the code provided by the course instructors, in order to use one for training the algorithm and the other for validating the final model.
+
+* Analyze the structure and characteristics of the data.
+
+* Generate the necessary models until achieving or surpassing the course's target of a Root Mean Square Error (RMSE) < 0.8649.
+
+* Present results and conclusions.
+
+More detailed explanations will be provided throughout this report.  
+
+Note: Due to the data wrangling performed on the original dataset, which has resulted in a considerable increase in its size, I recommend running the code on platforms like Posit Cloud or Google Colaboratory to avoid long execution times.
+
+
+# **DATA: PREPARATION AND ANALYSIS**
+Before starting the model construction, the data needs to be downloaded, prepared, and analyzed
+
+## **Data Download and Preparation**
+With the following code, provided in the course, we will download the data and split the mentioned dataset into two different sets, called 'edx' (90% of the data) and 'final_holdout_test' (remaining 10%). The first one will be used to develop the model, and the second one for the final validation.
+
+```{r cache=TRUE, size="small", message=FALSE, warning=FALSE}
+##########################################################
+# Create edx and final_holdout_test sets 
+##########################################################
+
+# Note: this process could take a couple of minutes
+
+if(!require(tidyverse)) 
+install.packages("tidyverse"
+, repos = "http://cran.us.r-project.org")
+if(!require(caret)) 
+install.packages("caret"
+, repos = "http://cran.us.r-project.org")
+
+library(tidyverse)
+library(caret)
+
+# MovieLens 10M dataset:
+# https://grouplens.org/datasets/movielens/10m/
+# http://files.grouplens.org/datasets/movielens/ml-10m.zip
+
+options(timeout = 120)
+
+dl <- "ml-10M100K.zip"
+if(!file.exists(dl))
+download.file(paste0("https://files.grouplens.org/datasets/", 
+                     "movielens/", 
+                     "ml-10m.zip"), dl)
+ratings_file <- "ml-10M100K/ratings.dat"
+if(!file.exists(ratings_file))
+  unzip(dl, ratings_file)
+
+movies_file <- "ml-10M100K/movies.dat"
+if(!file.exists(movies_file))
+  unzip(dl, movies_file)
+ratings <- as.data.frame(str_split(read_lines(ratings_file), 
+                                   fixed("::"), 
+                                   simplify = TRUE), 
+                         stringsAsFactors = FALSE)
+colnames(ratings) <- c("userId", "movieId", 
+                       "rating", "timestamp")
+ratings <- ratings %>%
+  mutate(userId = as.integer(userId),
+         movieId = as.integer(movieId),
+         rating = as.numeric(rating),
+         timestamp = as.integer(timestamp))
+movies <- as.data.frame(str_split(read_lines(movies_file), 
+                                  fixed("::"), 
+                                  simplify = TRUE), 
+                        stringsAsFactors = FALSE)
+
+colnames(movies) <- c("movieId", "title", "genres")
+movies <- movies %>%
+  mutate(movieId = as.integer(movieId))
+
+movielens <- left_join(ratings, movies, by = "movieId")
+
+# Final hold-out test set will be 10% of MovieLens data
+set.seed(1, sample.kind="Rounding") # if using R 3.6 or later
+# set.seed(1) # if using R 3.5 or earlier
+test_index <- createDataPartition(y = movielens$rating, 
+                                  times = 1, 
+                                  p = 0.1, list = FALSE)
+edx <- movielens[-test_index,]
+temp <- movielens[test_index,]
+
+# Make sure userId and movieId in final 
+# hold-out test set are also in edx set
+final_holdout_test <- temp %>% 
+  semi_join(edx, by = "movieId") %>%
+  semi_join(edx, by = "userId")
+
+# Add rows removed from final hold-out test
+# set back into edx set
+removed <- anti_join(temp, final_holdout_test)
+edx <- rbind(edx, removed)
+
+rm(dl, ratings, movies, test_index, temp, movielens, removed)
+
+```
+Additionally, we will use the following packages:
+
+```{r cache=TRUE, size="small", message=FALSE, warning=FALSE}
+if(!require(data.table))
+ install.packages("data.table"
+, repos = "http://cran.us.r-project.org")
+if(!require(knitr))
+ install.packages("knitr"
+, repos = "http://cran.us.r-project.org")
+if (!require(scales))
+ install.packages("scales"
+, repos = "http://cran.us.r-project.org")
+if (!require(ggthemes))
+ install.packages("ggthemes"
+, repos = "http://cran.us.r-project.org")
+if (!require(recosystem))
+ install.packages("recosystem"
+, repos = "http://cran.us.r-project.org")
+if(!require(formatR))
+ install.packages("formatR"
+, repos = "http://cran.us.r-project.org")
+
+library(data.table)
+library(knitr)
+library(scales)
+library(ggthemes)
+library(recosystem)
+library(formatR)
+```
+
+
+
+## **Preliminary Exploration**
+We will start by analyzing the data structure, its characteristics, and the relationship between the variables:
+\vspace{0.5cm}
+
+Displaying the first 5 rows:
+\vspace{0.5cm}
+
+
+```{r, echo=FALSE}
+# Displaying the first 5 rows of edx dataset
+edx_head <- head(edx, 5)
+
+# Generating thetable with centered data
+edx_head %>%
+  kable("latex", caption = NULL, booktabs = TRUE, row.names = FALSE, align = "c") %>%
+  kable_styling(latex_options = c("hold_position", "scale_down"), 
+                full_width = FALSE, position = "center") %>%
+  column_spec(1, width = "1.5cm") %>%
+  column_spec(2, width = "1.5cm") %>%
+  column_spec(3, width = "1.5cm") %>%
+  column_spec(4, width = "2.5cm") %>%
+  column_spec(5, width = "4.5cm") %>%
+  column_spec(6, width = "6cm") %>%
+  row_spec(0, bold = TRUE, color = "#FFFFFF", background = "#4472C4") %>%
+  add_header_above(c("First 5 Rows of the edx Dataset" = 6), bold = TRUE, color = "orange") %>%
+  gsub("\\\\begin\\{table\\}.*?\\n", "", .) %>%
+  gsub("\\\\end\\{table\\}", "", .)
+```
+\vspace{1cm}\RaggedRight
+
+Displaying the number of rows and columns
+\vspace{0.5cm}
+
+```{r, echo=FALSE}
+# Creating a data frame with dimensions
+dim_df <- data.frame(
+  Description = c("Number of Rows", "Number of Columns"),
+  Value = c(9000055, 6)
+)
+# Generating a LaTeX table with centered data
+dim_df %>%
+  kable("latex", caption = NULL, booktabs = TRUE, row.names = FALSE, align = "c") %>%
+  kable_styling(latex_options = c("hold_position", "scale_down"), 
+                full_width = FALSE, position = "center") %>%
+  column_spec(1, width = "10em") %>%  # Adjusting the column width 'Description'
+  column_spec(2, width = "5em") %>%  # Adjusting the column width 'Value'
+  row_spec(0, bold = TRUE, color = "#FFFFFF", background = "#4472C4") %>%  # Orange header and blue background
+  add_header_above(c("Dimensions Table" = 2), bold = TRUE, color = "orange") %>%  # Adding custom header above
+  gsub("\\\\begin\\{table\\}.*?\\n", "", .) %>%  # Removing LaTeX table environment start
+  gsub("\\\\end\\{table\\}", "", .)  # Removing LaTeX table environment end
+```
+
+\vspace{1cm}\RaggedRight
+
+Checking for missing values:
+\vspace{0.5cm}
+
+```{r, echo=FALSE}
+# Checking for missing values in all the columns of edx
+na_check <- sapply(edx, function(x) sum(is.na(x)))
+
+# Converting the results into a data frame
+na_check_df <- data.frame(
+  Column = names(na_check),
+  Missing_Values = na_check,
+  row.names = NULL # To avoid an extra column
+)
+
+# Generating a LaTeX table with centered data
+na_check_df %>%
+  kable("latex", caption = NULL, booktabs = TRUE, row.names = FALSE, align = "c", 
+        linesep = "") %>%
+  kable_styling(latex_options = c("hold_position"), 
+                full_width = FALSE, position = "center") %>%
+  column_spec(1, width = "15em") %>%
+  column_spec(2, width = "10em") %>%
+  row_spec(0, bold = TRUE, color = "#FFFFFF", background = "#4472C4") %>%
+  add_header_above(c("Missing Values in edx Dataset" = 2), bold = TRUE, color = "orange") %>%
+  row_spec(1:nrow(na_check_df), extra_css = "padding-top: 1px; padding-bottom: 1px;")
+```
+\vspace{1cm}\RaggedRight
+
+Range:
+\vspace{0.5cm}
+
+```{r, echo=FALSE}
+# Getting the number of unique values in all columns of edx
+unique_counts <- edx %>%
+  summarise_all(n_distinct)
+
+# Converting the results into a good format for kable
+unique_counts_df <- data.frame(
+  Column = colnames(unique_counts),
+  Unique_Values = as.vector(t(unique_counts)),
+  row.names = NULL
+)
+
+# Generating a LaTeX table with centered data
+unique_counts_df %>%
+  kable("latex", caption = NULL, booktabs = TRUE, row.names = FALSE, align = "c", 
+        linesep = "") %>%
+  kable_styling(latex_options = c("hold_position"),
+                full_width = FALSE, position = "center") %>%
+  column_spec(1, width = "12em") %>%
+  column_spec(2, width = "7em") %>%
+  row_spec(0, bold = TRUE, color = "#FFFFFF", background = "#4472C4") %>%
+  add_header_above(c("Unique Values in edx Dataset" = 2), bold = TRUE, color = "orange") %>%
+  row_spec(1:nrow(unique_counts_df), extra_css = "padding-top: 1px; padding-bottom: 1px;")
+```
+\vspace{1cm}\RaggedRight
+
+Variable type:
+\vspace{0.5cm}
+
+```{r, echo=FALSE}
+# Getting the class of each column in the edx dataset
+class_check <- sapply(edx, class)
+
+# Converting the results into a data frame
+class_check_df <- data.frame(
+  Column = names(class_check),
+  Data_Type = class_check,
+  row.names = NULL
+)
+
+# Generating a LaTeX table with centered data
+class_check_df %>%
+  kable("latex", caption = NULL, booktabs = TRUE, row.names = FALSE, align = "c", 
+        linesep = "") %>%
+  kable_styling(latex_options = c("hold_position"),
+                full_width = FALSE, position = "center") %>%
+  column_spec(1, width = "15em") %>%
+  column_spec(2, width = "10em") %>%
+  row_spec(0, bold = TRUE, color = "#FFFFFF", background = "#4472C4") %>%
+  add_header_above(c("Data Types in edx Dataset" = 2), bold = TRUE, color = "orange") %>%
+  row_spec(1:nrow(class_check_df), extra_css = "padding-top: 1px; padding-bottom: 1px;")
+```
+\vspace{1cm}\RaggedRight
+
+Description of each variable:
+\vspace{0.5cm}
+
+
+* userId: contains the identification of each user, with 69,878 distinct values.
+
+* movieId: numeric identifier associated with each movie, with 10,677 distinct values.
+
+* rating: users' rating for each movie, in multiples of 0.5, ranging from 0.5 to 5.
+
+* timestamp: the date when the rating was made, expressed in seconds since midnight on January 1st, 1970.
+
+* title: the name of the movie, including the release year.
+
+* genres: classification based on the genre of each movie, with 797 distinct values.
+
+
+Comments: when analyzing the table above, we observe:
+
+
+
+* The timestamp column is in a difficult-to-read format. Additionally, we can convert it into a rating year to study its possible effect.
+
+* Genres: although this may increase the size of the dataset, it is advisable to convert multiple classifications into individual ones, with the same goal as the previous point.
+
+* Title: besides the movie title, it provides information about the release year, considering this information valuable enough to separate it.
+
+
+## **Data wrangling**
+
+### **timestamp**
+
+We convert the current format into one that shows the year in which each movie was rated by the user. Therefore, we remove this variable from the dataset and create a new one called Rating_Year.
+
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE}
+# Converting timestamp to adate and then extract only the year
+edx <- edx %>%
+  mutate(Rating_Year = format(as.POSIXct(timestamp, origin = "1970-01-01", tz = "UTC"), "%Y"))
+
+# Eliminating the column timestamp
+edx <- edx %>%
+  select(-timestamp)
+
+# Dispalaying the first rows for checking the changes
+edx_head_updated <- head(edx, 5)
+
+# Generating the table with adjusted column widths and centered-aligned
+edx_head_updated %>%
+  kable("latex", caption = NULL, booktabs = TRUE, row.names = FALSE, align = "c") %>%
+  kable_styling(latex_options = c("hold_position", "scale_down"), 
+                full_width = FALSE, position = "center") %>%  # Table aligned to center
+  column_spec(1, width = "2.2em") %>%  # Adjusting the column width 'userId'
+  column_spec(2, width = "3em") %>%  # Adjusting the column width 'movieId'
+  column_spec(3, width = "2.8em") %>%  # Adjusting the column width 'rating'
+  column_spec(4, width = "14em") %>%  # Adjusting the column width 'title'
+  column_spec(5, width = "16em") %>%  # Adjusting the column width 'genres'
+  column_spec(6, width = "5em") %>%  # Adjusting the column width 'Rating_Year'
+  row_spec(0, bold = TRUE, color = "#FFFFFF", background = "#4472C4") %>%  # Header with blue background
+  row_spec(1:5, extra_css = "padding: 1px;") %>%  # Uniform padding
+  add_header_above(c("First 5 Rows of the edx Dataset (After Timestamp Conversion)" = 6), bold = TRUE, color = "orange")
+```
+
+\vspace{1cm}\RaggedRight
+### **title**
+
+It is about extracting the release year of the movie, moving it to a new column called Release_Year, and removing the year from the title column.
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE}
+# Using mutate and regular expressions to split the title and release year
+edx <- edx %>%
+  mutate(Release_Year = str_extract(title, "\\(\\d{4}\\)"),    # Extracting the release year (with parentheses)
+         Release_Year = as.numeric(str_remove_all(Release_Year, "[\\(\\)]")),  # Removing the parentheses and converting to numeric
+         title = str_remove(title, "\\(\\d{4}\\)"))             # Eliminating year from title
+
+# Eliminating the White spaces around title
+edx <- edx %>%
+  mutate(title = str_trim(title))
+
+# Displaying first rows to verify the change
+edx_head_updated <- head(edx, 5)
+
+# Generating the table with adjusted column widths and centered alignment
+edx_head_updated %>%
+  kable("latex", caption = NULL, booktabs = TRUE, row.names = FALSE, align = "c") %>%
+  kable_styling(latex_options = c("hold_position", "scale_down"), 
+                full_width = FALSE, position = "left") %>%
+  column_spec(1, width = "2.2em") %>%  # Adjusting the column width 'userId'
+  column_spec(2, width = "3em") %>%  # Adjusting the column width 'movieId'
+  column_spec(3, width = "2.8em") %>%  # Adjusting the column width 'rating'
+  column_spec(4, width = "10em") %>%  # Adjusting the column width 'title'
+  column_spec(5, width = "16em") %>%  # Adjusting the column width 'genres'
+  column_spec(6, width = "5em") %>%  # Adjusting the column width 'Rating_Year'
+  column_spec(7, width = "5em") %>%  # Adjusting the column width 'Release_Year'
+  row_spec(0, bold = TRUE, color = "#FFFFFF", background = "#4472C4") %>%  # Blue header with white text
+  row_spec(1:5, extra_css = "padding: 1px;") %>%  # Uniform padding
+  add_header_above(c("First 5 Rows of the edx Dataset (After Release Year Extraction)" = 7), bold = TRUE, color = "orange")
+```
+
+\vspace{1cm}\RaggedRight
+
+### **genres**
+In this section, the current content of the genres column (one or more genre classifications for each movie) is broken down into individual classifications.
+
+This action will result in a substantial increase in the amount of data, corresponding slowdown in code execution, and the possibility of obtaining incorrect results in our calculations due to data multiplication. Therefore, the functions distinct() and sometimes group_by() will need to be used.
+
+Despite these inconveniences, we consider the information we will obtain to be valuable
+\vspace{0.5cm}
+
+```{r cache=TRUE, echo=FALSE}
+# Separating the compound genres into individual genres (one row per genre)
+edx <- edx %>%
+  separate_rows(genres, sep = "\\|")
+
+# Displaying first rows for checking the changes
+edx_head_updated <- head(edx, 5)
+
+# Generating the table with adjusted column widths and centered alignment
+edx_head_updated %>%
+  kable("latex", caption = NULL, booktabs = TRUE, row.names = FALSE, align = "c") %>%
+  kable_styling(latex_options = c("hold_position", "scale_down"), 
+                full_width = FALSE, position = "left") %>%
+  column_spec(1, width = "2.2em") %>%  # Adjusting the column width 'userId'
+  column_spec(2, width = "3em") %>%  # Adjusting the column width 'movieId'
+  column_spec(3, width = "2.8em") %>%  # Adjusting the column width 'rating'
+  column_spec(4, width = "10em") %>%  # Adjusting the column width 'title'
+  column_spec(5, width = "12em") %>%  # Adjusting the column width 'genres'
+  row_spec(0, bold = TRUE, color = "#FFFFFF", background = "#4472C4") %>%  # Blue header with white text
+  row_spec(1:5, extra_css = "padding: 1px;") %>%  # Uniform padding for rows
+  add_header_above(c("First 5 Rows of the edx Dataset (After Genres Separation)" = 6), bold = TRUE, color = "orange")
+
+```
+
+\vspace{1cm}\RaggedRight
+
+
+.- The modifications made to the edx dataset have caused its dimensions to change:
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE}
+# Obtaining dimensions of dataset edx
+edx_dim <- data.frame(
+  Description = c("Number of Rows", "Number of Columns"),
+  Value = dim(edx)
+)
+
+# Generating the table using the preferred LaTeX format for edx_dim
+edx_dim %>%
+  kable("latex", caption = NULL, booktabs = TRUE, row.names = FALSE, align = "c") %>%
+  kable_styling(latex_options = c("hold_position", "scale_down"), 
+                full_width = FALSE, position = "center", font_size = 8) %>%  # Adjust font size
+  column_spec(1, width = "12em") %>%  # Adjusting the column width 'Description'
+  column_spec(2, width = "5em") %>%  # Adjusting the column width 'Value'
+  row_spec(0, bold = TRUE, color = "#FFFFFF", background = "#4472C4") %>%  # Blue header
+  row_spec(1:2, extra_css = "padding: 1px;") %>%  # Uniform padding for rows
+  add_header_above(c("Dimensions of the edx Dataset" = 2), bold = TRUE, color = "orange")  # Custom header above
+```
+
+\vspace{1cm}\RaggedRight
+
+.- Obviously, we also need to apply these three processes to the dataset that we will use to test the final model,  \verb|final_holdout_test|. 
+\vspace{0.5cm}
+
+```{r cache=TRUE, echo=FALSE}
+# Converting timestamp to a date and then extracting just the year for final_holdout_test
+final_holdout_test <- final_holdout_test %>%
+  mutate(Rating_Year = format(as.POSIXct(timestamp, origin = "1970-01-01", tz = "UTC"), "%Y"))
+
+# Eliminating the timestamp column in final_holdout_test
+final_holdout_test <- final_holdout_test %>%
+  select(-timestamp)
+
+# Separating the compound genres into individual genres (one row per genre)
+final_holdout_test <- final_holdout_test %>%
+  separate_rows(genres, sep = "\\|")
+
+# Using mutate and regular expressions to split the title and release year 
+final_holdout_test <- final_holdout_test %>%
+  mutate(Release_Year = str_extract(title, "\\(\\d{4}\\)"),    # Extracting Release Year
+         Release_Year = as.numeric(str_remove_all(Release_Year, "[\\(\\)]")),  # Removing the parentheses and converting to numeric
+         title = str_remove(title, "\\(\\d{4}\\)"))             # Eliminating the year from title
+
+# Eliminating possible blank spaces around title
+final_holdout_test <- final_holdout_test %>%
+  mutate(title = str_trim(title))
+
+# Displaying the first rows of the modified dataset
+final_holdout_test_head <- head(final_holdout_test, 5)
+
+# Generating the table with LaTeX format for final_holdout_test_head
+final_holdout_test_head %>%
+  kable("latex", caption = NULL, booktabs = TRUE, row.names = FALSE, align = "c") %>%
+  kable_styling(latex_options = c("hold_position", "scale_down"), full_width = FALSE, position = "center") %>%
+  column_spec(1, width = "2.5em") %>%
+  column_spec(2, width = "3em") %>%
+  column_spec(3, width = "4em") %>%
+  column_spec(4, width = "12em") %>%
+  column_spec(5, width = "4em") %>%
+  column_spec(6, width = "6em") %>%
+  column_spec(7, width = "6em") %>%
+  row_spec(0, bold = TRUE, color = "#FFFFFF", background = "#4472C4") %>%
+  row_spec(1:5, extra_css = "padding: 1px;") %>%
+  add_header_above(c("First 5 Rows of the final_holdout_test Dataset" = 7), bold = TRUE, color = "orange")
+```
+
+\vspace{1cm}\RaggedRight
+
+
+## **Analysis of the variables**
+
+Now that we have the dataset prepared, we will proceed with its analysis using various techniques, including visualization, to assess the suitability of including each variable in our model.
+
+### **rating**
+As already mentioned, users can rate movies with a score ranging from 0.5 to 5, in multiples of 0.5
+\vspace{0.5cm}
+
+```{r cache=TRUE, echo=FALSE}
+# Unique values of the rating column ordered from lowest to highest
+unique_ratings_sorted <- sort(unique(edx$rating))
+# Converting the unique values into a one-row data frame 
+unique_ratings_df <- as.data.frame(t(unique_ratings_sorted))
+# Renaming columns "Rating Values"
+colnames(unique_ratings_df) <- paste("Rating", 1:ncol(unique_ratings_df), sep = "_")
+# Generating the table with LaTeX format for unique_ratings_df
+unique_ratings_df %>%
+  kable("latex", caption = NULL, booktabs = TRUE, row.names = FALSE, align = "c") %>%
+  kable_styling(latex_options = c("hold_position", "scale_down"), full_width = FALSE, position = "center") %>%
+  column_spec(1, width = "6em") %>%  # Adjusting column width 
+  column_spec(2, width = "6em") %>%  # Adjusting the other
+  row_spec(0, bold = TRUE, color = "#FFFFFF", background = "#4472C4")  # Blue header without row shading
+```
+
+\vspace{1cm}\RaggedRight
+.- Calculating the mean: 
+As we have already mentioned, we need to remove the duplicate rows that arise after splitting genres in order to calculate the mean
+\vspace{0.5cm}
+
+```{r cache=TRUE, echo=FALSE}
+# Calculating the mean by removing duplicates based on userId and movieId
+mean_rating_original <- edx %>%
+  distinct(userId, movieId, .keep_all = TRUE) %>%
+  summarise(mean_rating = mean(rating))
+
+# Converting the result into a data frame to generate the table
+mean_rating_df <- as.data.frame(mean_rating_original)
+colnames(mean_rating_df) <- "Mean Rating"
+
+# Generating the table with LaTeX format for mean_rating_df
+mean_rating_df %>%
+  kable("latex", caption = NULL, booktabs = TRUE, row.names = FALSE, align = "c") %>%
+  kable_styling(latex_options = c("hold_position", "scale_down"), full_width = FALSE, position = "center") %>%
+  column_spec(1, width = "6em") %>%  # Adjusting column width again
+  row_spec(0, bold = TRUE, color = "#FFFFFF", background = "#4472C4")  # Blue header without row shading
+```
+
+\vspace{1cm}\RaggedRight
+
+
+.- For knowing the relative frequency:
+\vspace{0.5cm}
+
+```{r cache=TRUE, echo=FALSE, fig.width=4, fig.height=3, fig.align="center"}
+# Calculating the relative frequency
+rating_freq <- edx %>% 
+  group_by(rating) %>% 
+  summarise(frequency = n() / nrow(edx))
+
+# Generating the chart
+ggplot(rating_freq, aes(x = rating, y = frequency)) +
+  geom_bar(stat = "identity", fill = "orange") +  
+  labs(title = "Relative Frequency of Ratings by Rating Value",
+       x = "Rating Value",
+       y = "Relative Frequency") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+\vspace{1cm}\RaggedRight
+
+Comments:
+
+* The chart shows the proportion of each rating value relative to the total ratings in the dataset.
+
+* The most frequently used rating is 4 (approximately 30%).
+
+* Ratings below 3 have much lower frequencies, with a minimum at 0.5 and a slight increase at 2.0. This suggests that very low ratings are rare.
+
+* Users tend to give positive ratings to movies, as most ratings are concentrated around 3, 4, and 5. This could indicate a tendency toward satisfaction or a positive bias in the ratings.
+
+.- There is a clear tendency to use rounded values:
+\vspace{0.5cm}
+
+```{r cache=TRUE, echo=FALSE}
+# Calculating the number of ratings with and without decimals
+rating_type_counts <- edx %>%
+  mutate(is_integer = rating == floor(rating)) %>%  # Verifying no decimals
+  group_by(is_integer) %>%
+  summarise(count = n())
+
+# Modifying the results to add the rating type (integers or not)
+rating_type_counts <- rating_type_counts %>%
+  mutate(rating_type = ifelse(is_integer, "Integer Ratings", "Non-integer Ratings")) %>%
+  select(rating_type, count)
+
+# Generating the table with LaTeX format for rating_type_counts
+rating_type_counts %>%
+  kable("latex", caption = NULL, booktabs = TRUE, row.names = FALSE, align = "c") %>%
+  kable_styling(latex_options = c("hold_position", "scale_down"), full_width = FALSE, position = "center") %>%
+  column_spec(1, width = "10em") %>%  # Width first column
+  column_spec(2, width = "10em") %>%  # Width second one
+  row_spec(0, bold = TRUE, color = "#FFFFFF", background = "#4472C4") %>%  # Same header
+  row_spec(1:nrow(rating_type_counts), extra_css = "padding-bottom: 5px; padding-top: 5px;")  # Uniform spacing
+```
+\vspace{1cm}\RaggedRight
+
+.- The table shows two categories of ratings:
+
+* Integer Ratings: Whole number ratings such as 1, 2, 3, 4, and 5.
+
+* Non-integer Ratings: Decimal ratings such as 0.5, 1.5, 2.5, 3.5, and 4.5.
+
+.- Integer ratings are much more frequent than non-integer ratings. This could indicate that users tend to rate using whole numbers instead of decimals. In some recommendation systems, users might prefer using whole numbers because they seem more straightforward and less ambiguous. 
+Another explanation could be that the system encourages the use of whole numbers if the interface defaults to integer options or if it is simply more convenient for users to select a whole number.
+
+
+### **userId**
+.- As previously mentioned, the dataset contains 69,878 distinct users.
+
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE}
+# Calculating the number of distinct users
+distinct_users_count <- data.frame(Users = n_distinct(edx$userId))
+# Generating the table with LaTeX format for distinct_users_count
+distinct_users_count %>%
+  kable("latex", caption = NULL, booktabs = TRUE, row.names = FALSE, align = "c") %>%
+  kable_styling(latex_options = c("hold_position", "scale_down"), full_width = FALSE, position = "center") %>%
+  column_spec(1, width = "10em") %>%  # Ajusta el ancho de la columna
+  row_spec(0, bold = TRUE, color = "#FFFFFF", background = "#4472C4") %>%  # Encabezado azul con texto blanco
+  row_spec(1:nrow(distinct_users_count), extra_css = "padding-bottom: 5px; padding-top: 5px;")  # Espaciado uniforme
+```
+
+\vspace{0.5cm}\RaggedRight
+.- We are interested in understanding how the ratings given by users are distributed:
+
+
+\vspace{0.1cm}
+```{r cache=TRUE, echo=FALSE, fig.width=4, fig.height=3, fig.align="center"}
+# Grouping by userId and counting the number of ratings each user has made.
+user_ratings_count <- edx %>%
+  group_by(userId) %>%
+  summarise(n = n())
+
+# Making the chart - logarithmic scale on the x-axis
+ggplot(user_ratings_count, aes(n)) +
+  geom_histogram(color = "black", fill = "orange", bins = 30) +  
+  scale_x_log10() +  # Logarithmic scale on the x-axis
+  scale_y_continuous(labels = scales::comma, breaks = seq(0, 7000, 1000), limits = c(0, 7000)) +  # Axis y limited
+  ggtitle("Distribution of Users") +
+  xlab("Number of Ratings (Log Scale)") +
+  ylab("Number of Users") +
+  theme_minimal() +  # Tema minimalista
+  theme(plot.title = element_text(hjust = 0.5))  # Centring title
+```
+
+\vspace{0.1cm}\RaggedRight
+* The distribution is right-skewed, which implies that most users are less active (few ratings), while only a few are very active (many ratings).
+
+* The distribution has a peak in the range of 50 to 100 ratings per user, indicating that most users have given between 50 and 100 ratings.
+
+* The number of users decreases as the number of ratings increases, showing that there are few users who rate many movies.
+
+.- It is also interesting to know the average ratings:
+\vspace{0.1cm}
+
+```{r cache=TRUE, echo=FALSE, fig.width=4, fig.height=3, fig.align="center"}
+# Plotting average rating by user for the edx dataset
+edx %>%
+  mutate(rating_numeric = as.numeric(as.character(rating))) %>%  # Converting 'rating'
+  group_by(userId) %>%
+  summarise(ave_rating = mean(rating_numeric, na.rm = TRUE)) %>%  # Calculating average de 'rating_numeric'
+  ggplot(aes(ave_rating)) +
+  geom_histogram(bins = 30, color = "black", fill = "orange") +  
+  labs(x = "Average Rating", y = "Number of Users") +  
+  theme_minimal() +  # Basic theme
+  theme(plot.title = element_text(hjust = 0.5))  # Centerng title
+
+```
+\vspace{0.1cm}\RaggedRight
+* The distribution is approximately symmetric, with a slight rightward skew. This type of distribution suggests that most users tend to give ratings slightly above the average.
+
+* There are very few users with extremely low or extremely high average ratings. This may indicate that most users have a balanced distribution of their ratings.
+
+### **title**
+As previously mentioned, there are 10,677 movies in the dataset.
+
+.- Let's analyze which ones have received the most ratings:
+\vspace{0.1cm}
+
+```{r cache=TRUE, echo=FALSE, fig.width=8, fig.height=3, fig.align="center"}
+# Removing duplicates based on userId and movieId
+ratings_per_movie <- edx %>%
+  distinct(userId, movieId, .keep_all = TRUE) %>%
+  group_by(title) %>%
+  summarise(
+    avg_rating = mean(rating),       # Calculating mean
+    rating_count = n()               # Counting ratings
+  ) %>%
+  arrange(desc(rating_count))        # Ordering by number of ratings
+
+# Filter the movies with the most ratings
+top_rated_movies <- ratings_per_movie %>%
+  top_n(10, rating_count)
+
+# Making the chart
+ggplot(top_rated_movies, aes(x = rating_count, y = reorder(title, rating_count))) +
+  geom_point(color = "orange", size = 3) +
+  labs(title = "Top 10 Movies by Number of Ratings",
+       x = "Number of Ratings",
+       y = "Movie Title") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),          # Centring the title
+    axis.text.y = element_text(size = 8),            # Changing font size (2)
+    axis.text.x = element_text(size = 10)            # Changing font size
+  )
+```
+
+\vspace{0.1cm}\RaggedRight
+.- Now let's look at the movies that have received the highest ratings:
+\vspace{0.1cm}
+
+```{r cache=TRUE, echo=FALSE, fig.width=8, fig.height=3, fig.align="center"}
+# Removing duplicates based on userId and movieId
+ratings_per_movie <- edx %>%
+  distinct(userId, movieId, .keep_all = TRUE) %>%
+  group_by(title) %>%
+  summarise(
+    avg_rating = mean(rating, na.rm = TRUE),  # Calculating mean of ratings
+    rating_count = n()                        # Counting number of ratings
+  ) %>%
+  arrange(desc(avg_rating))                   # Ordering by mean
+
+# Filtering the top 10 movies with the highest average rating
+top_avg_rated_movies <- ratings_per_movie %>%
+  top_n(10, avg_rating)
+
+# Creating the chart
+ggplot(top_avg_rated_movies, aes(x = avg_rating, y = reorder(title, avg_rating))) +
+  geom_point(color = "orange", size = 3) +
+  labs(title = "Top 10 Movies by Average Rating",
+       x = "Average Rating",
+       y = "Movie Title") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),          # Centring the title
+    axis.text.y = element_text(size = 8),            # Changing font size (2)
+    axis.text.x = element_text(size = 10)            # Changing font size 
+  )
+```
+
+\vspace{0.5cm}\RaggedRight
+
+.- In other words, the movies that have received the best ratings are not the ones that have received the highest number of ratings. Let's examine this by studying the correlation between the number of ratings and the average rating:
+\vspace{0.5cm}
+
+```{r cache=TRUE, echo=FALSE, fig.width=8, fig.height=4, fig.align="center", message=FALSE, warning=FALSE}
+# Removing duplicates based on userId and movieId
+ratings_per_movie <- edx %>%
+  distinct(userId, movieId, .keep_all = TRUE) %>%
+  group_by(title) %>%
+  summarise(
+    avg_rating = mean(rating, na.rm = TRUE),  # Calculating mean of ratings
+    rating_count = n()                        # Counting number of ratings
+  ) %>%
+  filter(!is.na(avg_rating), !is.na(rating_count))  # Filtering NAs if needed
+
+# Creating the scatter plot 
+ggplot(ratings_per_movie, aes(x = rating_count, y = avg_rating)) +
+  geom_point(color = "orange", alpha = 0.7) +
+  labs(title = "Correlation between Number of Ratings and Average Rating",
+       x = "Number of Ratings",
+       y = "Average Rating") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 10),  # Centring and reducing title size
+    axis.text.x = element_text(size = 9),               # Changing font size for x-axis
+    axis.text.y = element_text(size = 9)                # Reducing font size for y-axis
+  ) +
+  geom_smooth(method = "lm", color = "blue", se = FALSE)  # Linear trendline
+```
+
+\vspace{0.5cm}\RaggedRight
+
+* The chart shows the relationship between the Number of Ratings and the Average Rating for each movie in the dataset.
+
+* There is a high concentration of points on the left side of the chart, particularly in low values of Number of Ratings (fewer than 500). This suggests that many movies have received few ratings.
+
+* The trend line has a positive slope, indicating a weak positive correlation between the number of ratings and the average rating. In general, as the number of ratings increases, the average rating tends to be slightly higher.
+
+* However, despite the overall positive trend, there is significant dispersion. Some movies with few ratings have very low or very high ratings, while movies with many ratings have ratings more concentrated around the average (between 3 and 4).
+
+### **Release_Year**
+
+Let's see if there is any relationship between the release year and the number of ratings received:
+\vspace{0.5cm}
+
+```{r cache=TRUE, echo=FALSE, fig.width=4, fig.height=3, fig.align="center"}
+
+# Removing duplicates based on userId andmovieId
+ratings_clean <- edx %>%
+  distinct(userId, movieId, .keep_all = TRUE)
+
+# Grouping by Release_Year
+ratings_per_release_year <- ratings_clean %>%
+  group_by(Release_Year) %>%
+  summarise(count = n())  # Counting ratings by year
+
+# Creating the chart with adjusted dimensions
+ggplot(ratings_per_release_year, aes(x = Release_Year, y = count)) +
+  geom_bar(stat = "identity", fill = "orange") +  # Bar chart with orange fill
+  labs(title = "Number of Ratings by Release Year",
+       x = "Release Year",
+       y = "Number of Ratings") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))  # Centring the title
+```
+
+\vspace{0.5cm}\RaggedRight
+
+* There is a gradual increase in the number of ratings from 1920 to 1980. This may be due to the growing availability and popularity of movies released in those years.
+
+* A significant peak in the number of ratings is observed for movies released during the 1990s, reaching the highest point around 1995. After 1995, there is a noticeable decline in the number of ratings for movies released in later years, although a considerable amount of ratings continues up until 2005.
+
+* Possible explanations for these facts could be:
+
+* Movies released in the 90s may have been more popular and more available on the platform where the data was collected, which explains the large number of ratings.
+
+* The large number of ratings for movies prior to the 80s and 70s may be due to classic or cult films that remain popular among users.
+
+
+.- Now let's see if there is a relationship between the release year and the rating received:
+
+\vspace{0.5cm}
+
+```{r cache=TRUE, echo=FALSE, fig.width=6, fig.height=3, fig.align="center"}
+# Removing duplicates based on userId and movieId
+ratings_clean <- edx %>%
+  distinct(userId, movieId, .keep_all = TRUE)
+
+# Grouping by Release_Year and calculating the average rating per year
+average_ratings_per_year <- ratings_clean %>%
+  group_by(Release_Year) %>%
+  summarise(avg_rating = mean(rating, na.rm = TRUE))  # Calculating the average of rating, ignoring NAs
+
+# Filtering to remove rows with NA in avg_rating or Release_Year
+average_ratings_per_year <- average_ratings_per_year %>%
+  filter(!is.na(avg_rating), !is.na(Release_Year))
+
+# Creating the chart with adjusted dimensions
+ggplot(average_ratings_per_year, aes(x = Release_Year, y = avg_rating)) +
+  geom_line(color = "orange", linewidth = 1) +  # Line in orange
+  geom_point(color = "orange", size = 2) +  # Adding orange points for years
+  labs(title = "Average Rating by Release Year",
+       x = "Release Year",
+       y = "Average Rating") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))  # Centring title
+```
+
+\vspace{0.5cm}\RaggedRight
+
+* A general downward trend is observed in the average rating over time, especially from the mid-20th century to the early 2000s. This indicates that movie ratings tend to be lower in more recent years.
+
+* In the early decades of the 20th century, there is high variability in average ratings, with significant peaks and valleys. This could be due to the smaller number of movies and ratings in those years, making the averages more volatile.
+
+### **Rating_Year**
+
+It might be interesting to know if there is a relationship between the number of ratings and the year in which the ratings were produced, in order to detect how long it took for this practice to become widespread among users, identify trends, etc.
+
+\vspace{0.1cm}
+```{r cache=TRUE, echo=FALSE, fig.width=4, fig.height=3, fig.align="center"}
+# Calculating the number of ratings per year
+ratings_per_year <- edx %>%
+  group_by(Rating_Year) %>%
+  summarise(count = n())
+
+# Generating the chart with smaller font for x-axis labels (3)
+ggplot(ratings_per_year, aes(x = Rating_Year, y = count)) +
+  geom_bar(stat = "identity", fill = "orange") +  # In orange
+  labs(title = "Number of Ratings by Year",
+       x = "Year of Rating",
+       y = "Number of Ratings") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),  # Centring title
+    axis.text.x = element_text(size = 5)  # Reducing font size for x-axis (2)
+  )
+```
+
+\vspace{0.1cm}\RaggedRight
+
+.- The variability in the number of ratings could reflect changes in user behavior, such as peaks of activity in certain years followed by stabilization or decline.
+
+.- To know the average rating depending on the rating year:
+
+\vspace{0.1cm}
+```{r cache=TRUE, echo=FALSE, fig.width=4, fig.height=3, fig.align="center"}
+# Keeping all columns except genres when removing duplicates
+ratings_clean_temp <- edx %>%
+  distinct(userId, movieId, rating, title, Release_Year, Rating_Year, .keep_all = TRUE)
+
+# Calculating the average of ratings by Rating_Year
+average_ratings_per_rating_year <- ratings_clean_temp %>%
+  group_by(Rating_Year) %>%
+  summarise(avg_rating = mean(rating, na.rm = TRUE))  # Calculating mean, ignoring NAs
+
+# Filtering rows with NA in 'avg_rating' or 'Rating_Year'
+average_ratings_per_rating_year <- average_ratings_per_rating_year %>%
+  filter(!is.na(avg_rating), !is.na(Rating_Year))
+
+# Generating the chart with smaller font for x-axis labels (2)
+ggplot(average_ratings_per_rating_year, aes(x = Rating_Year, y = avg_rating)) +
+  geom_bar(stat = "identity", fill = "orange") +  # Orange color
+  labs(title = "Average Rating by Rating Year",
+       x = "Year of Rating",
+       y = "Average Rating") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),  # Centring title
+    axis.text.x = element_text(size = 5)  # Reducing font size for x-axis (2)
+  )
+```
+
+\vspace{0.5cm}\RaggedRight
+	.- The consistency in average ratings from 1996 to 2009 indicates that, regardless of the number of ratings given, the users' overall perception of movies did not change drastically in general terms
+
+### **genres**
+
+Initially, the dataset contained 797 distinct genre combinations. After the transformation, we are left with 20, distributed as follows:
+\vspace{0.1cm}
+
+```{r cache=TRUE, echo=FALSE, fig.width=4, fig.height=3, fig.align="center"}
+# Counting the number of unique movies by genre
+genre_counts <- edx %>%
+  distinct(movieId, genres) %>%
+  group_by(genres) %>%
+  summarise(movie_count = n())    # Same operation
+
+# Generating the horizontal bar chart with numbers next to each bar (2 – out now)
+ggplot(genre_counts, aes(x = movie_count, y = reorder(genres, movie_count))) + 
+  geom_bar(stat = "identity", fill = "orange", color = "black") + 
+  geom_text(aes(label = movie_count), 
+            hjust = -0.2,  # Numbers outside the bars
+            color = "black", 
+            size = 3) +  # Changing the size of the numbers (3)
+  labs(title = "Number of Unique Movies per Genre", 
+       x = "Number of Movies", 
+       y = "Genres") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))  # Centring title
+```
+
+\vspace{0.1cm}\RaggedRight
+.- To know the average rating each genre receives:
+\vspace{0.1cm}
+
+```{r cache=TRUE, echo=FALSE, fig.width=5, fig.height=3, fig.align="center"}
+# Calculating the mean of ratings per each genre
+average_rating_by_genre <- edx %>%
+  group_by(genres) %>%
+  summarise(avg_rating = mean(rating, na.rm = TRUE))  # Calculating average of ratings, ignoring NAs
+
+# Filtering genres with NA in 'avg_rating'
+average_rating_by_genre <- average_rating_by_genre %>%
+  filter(!is.na(avg_rating))
+
+# Creating the chart
+ggplot(average_rating_by_genre, aes(x = avg_rating, y = reorder(genres, avg_rating))) +
+  geom_bar(stat = "identity", fill = "orange") +    # Orange bars
+  labs(title = "Average Rating by Genre",
+       x = "Average Rating",
+       y = "Genre") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))      # Centring the title
+```
+
+\vspace{0.1cm}\RaggedRight
+* Genres like Film-Noir and Documentary tend to have a more specific and less mainstream audience. This could lead to higher ratings, as people who consume these genres tend to be enthusiasts and give more positive reviews.
+
+* Genres like Comedy, Action, and Children, although popular, usually have a wide range in terms of perceived quality, which can lead to a dispersion of ratings and, consequently, a lower average.
+
+
+.- To know how many ratings each genre has received:
+\vspace{0.5cm}
+
+```{r cache=TRUE, echo=FALSE, fig.width=6, fig.height=3, fig.align="center"}
+# Calculating the number of ratings for each genre
+ratings_count_by_genre <- edx %>%
+  group_by(genres) %>%                  # Grouping by genres
+  summarise(rating_count = n())         # Counting the number of ratings per each genre
+
+# Creating the chart
+ggplot(ratings_count_by_genre, aes(x = rating_count, y = reorder(genres, rating_count))) +
+  geom_bar(stat = "identity", fill = "orange") +    # Orange bars
+  labs(title = "Number of Ratings by Genre",
+       x = "Number of Ratings",
+       y = "Genre") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))      # Centring the title
+
+```
+
+\vspace{0.5cm}\RaggedRight
+* Drama, Comedy, and Action are the genres that have received the highest number of ratings, with over 3 million ratings each. This suggests that they are widely popular genres consumed by a large number of users. Thriller and Adventure also have a high number of ratings, indicating considerable interest in these genres.
+
+* Genres like Drama, Comedy, and Action tend to be more accessible and popular, attracting a broader audience and therefore receiving more ratings. Genres like Documentary and Film-Noir tend to attract a more specific, niche audience, which is reflected in a lower number of ratings.
+
+# **MODELING**
+Before starting to develop the successive models that will lead us to achieve the desired goal, we need to split the edx dataset into two subsets to avoid overfitting our model.
+
+Using part of the code provided by the course instructors, we will split edx into two parts: the first, called edx2, will contain 90% of the data and will be used for the development of successive models; the second, containing the remaining 10% of the data, will be called testing, and we will use it to measure the accuracy of the developed models. 
+
+Let's not forget that the validation of the final model must be done using the final_holdout_test dataset.
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE, include=FALSE}
+# Creating edx2 and testing sets from modified edx dataset
+
+# Setting seed for reproducibility of results
+set.seed(1, sample.kind = "Rounding")  # For 3.6 or later
+
+# Creating an index to split the edx dataset into 90% for edx2 and 10% for testing
+test_index <- createDataPartition(y = edx$rating, times = 1, p = 0.1, list = FALSE)
+
+# Creating the edx2 and a temporary subset (temp) for 10% of the data
+edx2 <- edx[-test_index,]  # Training (90%)
+temp <- edx[test_index,]   # Temp (10%)
+
+# Ensuring that all elements in the testing set have a match in edx2
+testing <- temp %>%
+  semi_join(edx2, by = "movieId") %>%  # Just movies in edx2
+  semi_join(edx2, by = "userId")       # Just users in edx2
+
+# Rows that were removed from the testing set because they did not meet the matching criteria between userId and movieId are added back to edx2
+removed <- anti_join(temp, testing)
+edx2 <- rbind(edx2, removed)
+
+# Displaying first rows – edx2
+head(edx2)
+
+# Clearing temporary variables to avoid occupying unnecessary space
+rm(test_index, temp, removed)
+```  
+
+\vspace{0.5cm}\RaggedRight
+To check that the partition has been done correctly:
+
+.- First 5 rows of edx2:
+\vspace{0.2cm}
+```{r cache=TRUE, echo=FALSE}
+# Displaying the first 5 rows of edx2
+edx2_head <- head(edx2, 5)  # Extracting the first 5 rows
+
+# Generating the table with kableExtra in LaTeX format
+edx2_head %>%
+  kable("latex", caption = NULL, booktabs = TRUE, row.names = FALSE, align = "c") %>%
+  kable_styling(latex_options = c("HOLD_position", "scale_down"), 
+                full_width = FALSE, position = "center") %>%
+  column_spec(1, width = "2.2em") %>%  # userId
+  column_spec(2, width = "3em") %>%  # movieId
+  column_spec(3, width = "2.8em") %>%  # rating
+  column_spec(4, width = "10em") %>%  # title
+  column_spec(5, width = "12em") %>%  # genres
+  column_spec(6, width = "7em") %>%  # Rating_Year
+  column_spec(7, width = "7em") %>%  # Release_Year (adding the missing column)
+  row_spec(0, bold = TRUE, color = "#FFFFFF", background = "#4472C4") %>%
+  row_spec(1:5, extra_css = "padding: 1px;") %>%
+  add_header_above(c("First 5 Rows of the edx2 Dataset" = 7), bold = TRUE, color = "orange")
+```
+\vspace{0.5cm}\RaggedRight
+.- Now, the same with testing:
+\vspace{0.2cm}
+
+```{r cache=TRUE, echo=FALSE}
+# Displaying the first 5 rows of testing
+testing_head <- head(testing, 5)
+
+# Generating the table with kableExtra in LaTeX format
+testing_head %>%
+  kable("latex", caption = NULL, booktabs = TRUE, row.names = FALSE, align = "c") %>%
+  kable_styling(latex_options = c("HOLD_position", "scale_down"), 
+                full_width = FALSE, position = "center") %>%
+  column_spec(1, width = "2.2em") %>%  # userId
+  column_spec(2, width = "3em") %>%  # movieId
+  column_spec(3, width = "2.8em") %>%  # rating
+  column_spec(4, width = "10em") %>%  # title
+  column_spec(5, width = "12em") %>%  # genres
+  column_spec(6, width = "7em") %>%  # Rating_Year
+  column_spec(7, width = "7em") %>%  # Release_Year (added missing column)
+  row_spec(0, bold = TRUE, color = "#FFFFFF", background = "#4472C4") %>%
+  row_spec(1:5, extra_css = "padding: 1px;") %>%
+  add_header_above(c("First 5 Rows of the testing Dataset" = 7), bold = TRUE, color = "orange")
+```
+
+\vspace{0.5cm}\RaggedRight
+.- About dimensions:
+\vspace{0.5cm}
+
+```{r cache=TRUE, echo=FALSE}
+# Creating a data frame with the dimensions of the datasets
+dataset_dimensions <- data.frame(
+  Dataset = c("edx original", "edx modified", "edx2", "testing"),
+  Rows = c(9000055, nrow(edx), nrow(edx2), nrow(testing)),
+  Columns = c(6, ncol(edx), ncol(edx2), ncol(testing))
+)
+
+# Generating the table with kableExtra
+dataset_dimensions %>%
+  kable("latex", caption = NULL, booktabs = TRUE, row.names = FALSE, align = "c") %>%
+  kable_styling(latex_options = c("HOLD_position", "scale_down"), 
+                full_width = FALSE, 
+                position = "center", font_size = 8) %>%
+  column_spec(1, width = "9em") %>%  # Adjusting the column width 
+  column_spec(2, width = "4em") %>%  # Adjusting the column width 'Rows'
+  column_spec(3, width = "4em") %>%  # Adjusting the column width 'Columns'
+  row_spec(0, bold = TRUE, color = "#FFFFFF", background = "#4472C4") %>%
+  row_spec(1:4, extra_css = "padding: 1px;") %>%
+  add_header_above(c("Dataset Dimensions" = 3), bold = TRUE, color = "orange")
+```
+
+\vspace{0.5cm}\RaggedRight
+The accuracy of the successive models that will be developed will be measured using the Residual Mean Squared Error:
+
+$$ RMSE = \sqrt{\frac{1}{n} \sum_{u,i} \left( y_{u,i} - \hat{y}_{u,i} \right)^2} $$
+
+where:
+
+  \( n \): represents the total number of predictions being evaluated. 
+
+ \( \hat{y}_{u,i} \): the rating predicted by the model for user \( u \) and movie \( i \).
+
+ \( y_{u,i} \): the actual rating that user \( u \) gave to movie \( i \).
+
+* The RMSE measures the average error between the ratings a model predicts and the actual ratings given by users. In other words, it indicates how close the predictions are to the actual ratings.
+
+* A low RMSE would indicate that the predicted ratings are close to the actual ratings. This means that the recommendation system is making good predictions, while a high RMSE would indicate that the model's predictions are far from the actual ratings, suggesting that the model needs improvement as it is generating inaccurate predictions
+
+
+## **Average movie rating model**
+In this first model, the prediction of the rating \( \hat{y}_{ui} \) for any movie i and any user u is based exclusively on the global mean μ of all ratings in the dataset. However, we acknowledge that there are individual rating differences that cannot be explained solely by the mean, so we introduce the random term $\epsilon_{u,i}$ to capture inherent noise in the predictions
+$$\hat{y}_{u,i} = \mu + \varepsilon_{u,i}$$
+
+\vspace{0.1cm}
+```{r cache=TRUE, echo=FALSE}
+# Calculating the mean of ratings eliminating duplicates
+mean_rating_edx2 <- edx2 %>% 
+  distinct(userId, movieId, .keep_all = TRUE) %>% 
+  summarise(mean_rating = mean(rating)) %>% 
+  pull(mean_rating)
+
+# Initializing a list to store the RMSEs of each model
+rmse_values <- list()
+
+# Eliminating duplicates in testing
+testing_clean <- testing %>% 
+  distinct(userId, movieId, .keep_all = TRUE) %>% 
+  mutate(predicted_rating = mean_rating_edx2)
+
+# Calculating RMSE comparing predictions with real values
+rmse_mean_based <- sqrt(mean((testing_clean$rating - testing_clean$predicted_rating)^2))
+
+# Saving RMSE in rmse_values
+rmse_values$mean_based <- round(rmse_mean_based, 5)
+
+# Creating a data frame with the RMSE
+rmse_table <- data.frame(
+  Model = "Mean_Based Model",  # Header 
+  RMSE = rmse_values$mean_based  # Using saved value in rmse_values
+)
+
+# Generating table using KableExtra for LaTeX
+rmse_table %>%
+  kable("latex", booktabs = TRUE, row.names = FALSE, align = "c") %>%
+  kable_styling(latex_options = c("hold_position", "scale_down"), 
+                full_width = FALSE, position = "center") %>%
+  column_spec(1, width = "15em") %>%  # Adjusting the column width for model name
+  column_spec(2, width = "10em") %>%  # Adjusting the column width for RMSE
+  row_spec(0, bold = TRUE, color = "orange", background = "blue") %>%  # Blue header with orange text
+  row_spec(1, extra_css = "padding: 1px;") %>%  # Uniform padding for rows
+  kable_styling(font_size = 12, position = "center")  # New font size (3)
+```
+
+\vspace{0.1cm}\RaggedRight
+## **Movie effect model**
+As expected, the previous model yields a very high RMSE, indicating that it is not sufficiently accurate in its predictions. To improve the model's performance, we propose adding the effect caused by the movie variable
+
+$$ \hat{y}_{u,i} = \mu + b_i + \epsilon_{u,i} $$
+
+where b_i is the bias of movie i, which measures how much the average rating of movie i deviates from the global mean μ.
+
+\vspace{0.1cm}
+```{r cache=TRUE, echo=FALSE}
+# Calculating mean rating 
+mean_rating_edx2 <- edx2 %>% 
+  distinct(userId, movieId, .keep_all = TRUE) %>% 
+  summarise(mean_rating = mean(rating)) %>% 
+  pull(mean_rating)
+
+# Calculating movie bias
+movie_bias <- edx2 %>% 
+  group_by(movieId) %>% 
+  summarise(b_i = mean(rating) - mean_rating_edx2)  
+
+# Cleanning testing set and add movie bias
+testing_clean <- testing %>% 
+  distinct(userId, movieId, .keep_all = TRUE) %>% 
+  left_join(movie_bias, by = "movieId") %>% 
+  mutate(b_i = ifelse(is.na(b_i), 0, b_i),  # Replace NA with 0 if no movie bias
+         predicted_rating = mean_rating_edx2 + b_i)  # Prediction = μ + b_i
+
+# Calculating RMSE
+rmse_movie_effect <- sqrt(mean((testing_clean$rating - testing_clean$predicted_rating)^2))
+
+# Saving RMSE in rmse_values
+rmse_values$movie_effect <- round(rmse_movie_effect, 5)
+
+# Creating RMSE table
+rmse_table_combined <- data.frame(
+  Model = c("Mean_Based Model", "Movie_Effect Model"),  
+  RMSE = c(rmse_values$mean_based, rmse_values$movie_effect)
+)
+
+# Generating the table
+rmse_table_combined %>% 
+  kable("latex", booktabs = TRUE, row.names = FALSE, align = "c") %>% 
+  kable_styling(latex_options = c("hold_position", "scale_down"), 
+                full_width = FALSE, position = "center") %>% 
+  column_spec(1, width = "22em") %>%  # Fixed width for 'Model' (3)
+  column_spec(2, width = "6em") %>%   # Reduced width for 'RMSE' (2)
+  row_spec(0, bold = TRUE, color = "orange", background = "blue") %>%  # Blue header with orange text
+  row_spec(1:2, extra_css = "padding: 1px;") %>%  # Uniform padding for rows
+  kable_styling(font_size = 12, position = "center")  # Font size (2)
+```
+
+\vspace{0.1cm}\RaggedRight
+.- Graphically analyzing the movie bias:
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE, fig.width=4, fig.height=3, fig.align="center", fig.pos='H'}
+# Calculating the bias of each movie (b_i) with respect to the global mean in edx2
+movie_bias <- edx2 %>%
+  distinct(userId, movieId, .keep_all = TRUE) %>%  # Eliminating duplicates
+  group_by(movieId) %>%       # Grouping by movie
+  summarise(b_i = mean(rating - mean_rating_edx2)) # Calculating the bias
+
+#  Generating the chart with ggplot
+ggplot(movie_bias, aes(x = b_i)) +
+  geom_histogram(binwidth = 0.1, fill = "orange", color = "black") +  # Creating the chart
+  labs(title = "Distribution of Movies by Movie Bias (b_i)",   # Title
+       x = "Movie Bias (b_i)",   # X label
+       y = "Number of Movies") +    # Y label
+  theme_minimal() +                                                  
+  theme(plot.title = element_text(hjust = 0.5))  # Centring title
+
+```
+\vspace{0.5cm}\RaggedRight
+
+
+
+## **Movie and User effects model**
+The previous model, which includes the global mean μ and the movie bias b_i, improves prediction accuracy by considering that different movies have different average ratings. However, we still do not capture the fact that different users have different rating patterns.
+For example, some users tend to give higher ratings than others, regardless of the movie, while others may be more critical and generally give lower ratings. To reflect this, we add a new term to the model, b_u, which captures the user-specific bias.
+
+$$ \hat{y}_{u,i} = \mu + b_i + b_u + \epsilon_{u,i} $$
+
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE}
+# Calculating the bias of each user (b_u) with respect to the global mean and the bias of each movie
+user_bias <- edx2 %>%
+  distinct(userId, movieId, .keep_all = TRUE) %>% 
+  left_join(movie_bias, by = "movieId") %>% 
+  group_by(userId) %>% 
+  summarise(b_u = mean(rating - mean_rating_edx2 - b_i))
+
+# Merging the movie and user biases with the testing set, removing duplicates
+testing_clean <- testing %>%
+  distinct(userId, movieId, .keep_all = TRUE) %>% 
+  left_join(movie_bias, by = "movieId") %>% 
+  left_join(user_bias, by = "userId") %>% 
+  mutate(b_i = ifelse(is.na(b_i), 0, b_i),  # Replacing NA with 0 if no movie bias
+         b_u = ifelse(is.na(b_u), 0, b_u),  # Replacing NA with 0 if no user bias
+         predicted_rating = mean_rating_edx2 + b_i + b_u)  # Prediction = μ + b_i + b_u
+
+# Calculating the RMSE by comparing predictions with actual values in the testing set
+rmse_movie_user_effect <- sqrt(mean((testing_clean$rating - testing_clean$predicted_rating)^2))
+
+# Saving RMSE in rmse_values
+rmse_values$movie_user_effect <- round(rmse_movie_user_effect, 5)
+
+# Creating a data frame with RMSE of all the models
+rmse_table_combined <- data.frame(
+  Model = c("Mean_Based Model", "Movie_Effect Model", "Movie+User_Effect Model"),  
+  RMSE = c(rmse_values$mean_based, rmse_values$movie_effect, rmse_values$movie_user_effect)  
+)
+
+# Generating the table width for the 'Model' column to fit longer model names
+rmse_table_combined %>% 
+  kable("latex", booktabs = TRUE, row.names = FALSE, align = "c") %>% 
+  kable_styling(latex_options = c("hold_position", "scale_down"), 
+                full_width = FALSE, position = "center") %>% 
+  column_spec(1, width = "22em") %>%  # Fixed width for 'Model' to accommodate longer names (?)
+  column_spec(2, width = "6em") %>%   # Reduced width for 'RMSE' (3)
+  row_spec(0, bold = TRUE, color = "orange", background = "blue") %>%  # Blue header with orange text
+  row_spec(1:3, extra_css = "padding: 1px;") %>%  # Uniform padding for rows
+  kable_styling(font_size = 12, position = "center")  # Font size adjusted (6)
+```
+
+\vspace{0.5cm}\RaggedRight
+.- To generate the bias plot:
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE, fig.width=4, fig.height=3, fig.align="center"}
+
+# Calculate the bias of each user (b_u) with respect to the global mean and the bias of each movie in edx2
+user_bias <- edx2 %>%
+  distinct(userId, movieId, .keep_all = TRUE) %>%  # Eliminating duplicates
+  left_join(movie_bias, by = "movieId") %>% # Joining bias
+  group_by(userId) %>%  # Grouping by user
+  summarise(b_u = mean(rating - mean_rating_edx2 - b_i)) # Calculating user bias
+
+# Generating chart with ggplot
+ggplot(user_bias, aes(x = b_u)) +
+  geom_histogram(binwidth = 0.1, fill = "orange", color = "black") +  # Creating the chart
+  labs(title = "Distribution of User Bias (b_u)",  # Title
+       x = "User Bias (b_u)",  # X label
+       y = "Count") +  # Y label
+  theme_minimal() +                                                   
+  theme(plot.title = element_text(hjust = 0.5))  # Centring the title
+```
+
+\vspace{0.5cm}\RaggedRight
+
+.- The concentration of most values around 0 indicates that the majority of users do not deviate much from the adjusted mean. This suggests relatively uniform rating behavior
+
+
+## **Movie, User & Release Year effects model**
+After introducing the effect of users and movies into the model, we significantly improved the system's ability to make personalized predictions. However, we are still not accounting for the fact that ratings may vary depending on the age of the movies. Films released in different eras may receive different ratings due to factors such as changes in cinematic trends, audience preferences over time, or technical quality.
+
+To account for this phenomenon, we add a new term to the model, b_r, which adjusts the predictions based on the year the movie was released.
+
+$$ \hat{y}_{u,i} = \mu + b_i + b_u + b_r + \epsilon_{u,i} $$
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE}
+# Calculating the bias by release year (b_r) with respect to the global mean, movie bias, and user bias
+release_year_bias <- edx2 %>%
+  distinct(userId, movieId, .keep_all = TRUE) %>% 
+  left_join(movie_bias, by = "movieId") %>% 
+  left_join(user_bias, by = "userId") %>% 
+  group_by(Release_Year) %>% 
+  summarise(b_r = mean(rating - mean_rating_edx2 - b_i - b_u))
+
+# Merging the biases of movies, users, and release year with the testing set, removing duplicates
+testing_clean <- testing %>%
+  distinct(userId, movieId, .keep_all = TRUE) %>% 
+  left_join(movie_bias, by = "movieId") %>% 
+  left_join(user_bias, by = "userId") %>% 
+  left_join(release_year_bias, by = "Release_Year") %>% 
+  mutate(b_i = ifelse(is.na(b_i), 0, b_i),   
+         b_u = ifelse(is.na(b_u), 0, b_u), 
+         b_r = ifelse(is.na(b_r), 0, b_r),  
+         predicted_rating = mean_rating_edx2 + b_i + b_u + b_r)
+
+# Calculating the RMSE by comparing predictions with real values
+rmse_movie_user_release_effect <- sqrt(mean((testing_clean$rating - testing_clean$predicted_rating)^2))
+
+# Saving the RMSE in rmse_values
+rmse_values$movie_user_release_effect <- round(rmse_movie_user_release_effect, 5)
+
+# Creating a data frame with all models' RMSE
+rmse_table_combined <- data.frame(
+  Model = c("Mean_Based Model", "Movie_Effect Model", "Movie+User_Effect Model", "Movie+User+Release_Year Model"),  
+  RMSE = c(rmse_values$mean_based, rmse_values$movie_effect, rmse_values$movie_user_effect, rmse_values$movie_user_release_effect)
+)
+
+# Generating the table with LaTeX format using kableExtra
+rmse_table_combined %>%
+  kable("latex", booktabs = TRUE, row.names = FALSE, align = "c") %>%
+  kable_styling(latex_options = c("hold_position", "scale_down"), 
+                full_width = FALSE, position = "center") %>%
+  column_spec(1, width = "22em") %>%  # Adjusting width for 'Model'
+  column_spec(2, width = "6em") %>%   # Adjusting width for 'RMSE'
+  row_spec(0, bold = TRUE, color = "orange", background = "blue") %>%  # Styling header row
+  row_spec(1:4, extra_css = "padding: 1px;") %>%  # Uniform padding for rows
+  kable_styling(font_size = 12, position = "center")  # Font size new (3)
+```
+
+\vspace{0.5cm}\RaggedRight
+.- Analyzing it visually:
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE, fig.width=4, fig.height=3, fig.align="center", fig.pos='H'}
+# Chart of Release_Year bias (b_r)
+ggplot(release_year_bias, aes(x = b_r)) +
+  geom_histogram(binwidth = 0.1, fill = "orange", color = "black") +  # Creating chart
+  labs(title = "Distribution of Release Year Bias (b_r)",  # Title
+       x = "Release Year Bias (b_r)",   # X label
+       y = "Count") +    # Y label
+  theme_minimal() +    
+  theme(plot.title = element_text(hjust = 0.5))   # Centring the title
+```
+
+\vspace{0.5cm}\RaggedRight
+.- The concentration of most values around 0 suggests that the release year is not a determining factor for the deviation from the average rating once the movie and user biases have been adjusted for.
+
+## **Movie, User, Release Year & Genres effects model**
+After incorporating the effects of users, movies, and release year into the model, we are still missing an important dimension that may strongly influence ratings: the movie genre. The genre of a movie (such as action, drama, comedy, etc.) can have a significant impact on how users rate the movie, as different genres tend to attract different types of audiences, and some genres tend to be rated higher in general. 
+
+To incorporate this phenomenon, we add a new term, b_g, which represents the effect of the movie genre.
+
+
+$$ \hat{y}_{u,i} = \mu + b_i + b_u + b_r + b_g + \epsilon_{u,i} $$
+
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE}
+# Calculating the bias by genre (b_g) using unique combinations of userId, movieId, and genres
+genre_bias <- edx2 %>%
+  distinct(userId, movieId, genres, .keep_all = TRUE) %>% 
+  left_join(movie_bias, by = "movieId") %>% 
+  left_join(user_bias, by = "userId") %>% 
+  left_join(release_year_bias, by = "Release_Year") %>% 
+  group_by(genres) %>% 
+  summarise(b_g = mean(rating - mean_rating_edx2 - b_i - b_u - b_r))
+
+# Merging all the effects (movie, user, release year, and genre) with the testing set
+testing_clean <- testing %>%
+  distinct(userId, movieId, genres, .keep_all = TRUE) %>% 
+  left_join(movie_bias, by = "movieId") %>% 
+  left_join(user_bias, by = "userId") %>% 
+  left_join(release_year_bias, by = "Release_Year") %>% 
+  left_join(genre_bias, by = "genres") %>% 
+  mutate(b_i = ifelse(is.na(b_i), 0, b_i),
+         b_u = ifelse(is.na(b_u), 0, b_u),
+         b_r = ifelse(is.na(b_r), 0, b_r),
+         b_g = ifelse(is.na(b_g), 0, b_g),
+         predicted_rating = mean_rating_edx2 + b_i + b_u + b_r + b_g)
+
+# Calculating the RMSE for the model with genres effect
+rmse_genre_effect <- sqrt(mean((testing_clean$rating - testing_clean$predicted_rating)^2))
+
+# Saving the RMSE in rmse_values
+rmse_values$genre_effect <- round(rmse_genre_effect, 5)
+
+# Creating a data frame with all the models' RMSE
+rmse_table_combined <- data.frame(
+  Model = c("Mean_Based Model", 
+            "Movie_Effect Model", 
+            "Movie+User_Effect Model", 
+            "Movie+User+Release_Year Model", 
+            "Movie+User+Release_Year+Genre Model"),
+  RMSE = c(rmse_values$mean_based, 
+           rmse_values$movie_effect, 
+           rmse_values$movie_user_effect, 
+           rmse_values$movie_user_release_effect,
+           rmse_values$genre_effect)
+)
+
+# Generating the table
+rmse_table_combined %>% 
+  kable("latex", booktabs = TRUE, row.names = FALSE, align = "c") %>% 
+  kable_styling(latex_options = c("hold_position", "scale_down"), 
+                full_width = FALSE, position = "center") %>% 
+  column_spec(1, width = "22em") %>%  # Fixed width for 'Model' (3)
+  column_spec(2, width = "6em") %>%   # Reduced width for 'RMSE' (2)
+  row_spec(0, bold = TRUE, color = "orange", background = "blue") %>%  # Old header row
+  row_spec(1:5, extra_css = "padding: 1px;") %>%  # Uniform row padding
+  kable_styling(font_size = 12, position = "center")
+```
+
+\vspace{0.5cm}\RaggedRight
+.- To analyze the bias graphically:
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE, fig.width=4, fig.height=3, fig.align="center", fig.pos='H'}
+# Generating the chart for genres bias (b_g)
+ggplot(genre_bias, aes(x = b_g)) +
+  geom_histogram(binwidth = 0.05, fill = "orange", color = "black") +  # Creating the chart
+  labs(title = "Distribution of Genre Bias (b_g)",  # Title
+       x = "Genre Bias (b_g)",   # X label
+       y = "Count") +  # Y label
+  theme_minimal() +  
+  theme(plot.title = element_text(hjust = 0.5))  # Centring the title
+
+```
+
+\vspace{0.5cm}\RaggedRight
+
+* The concentration of most values around 0 suggests that, once the effects of movie, user, and release year are adjusted, the perception of genres in terms of rating is quite uniform.
+
+* There are no genres with a considerable negative bias, indicating that no specific genre is rated significantly worse than the adjusted average.
+* The distribution suggests that genre, as an individual factor, has a limited impact on the deviation from the average rating when the other factors are considered.
+
+
+
+## **Regularization of the model with the effects of movie, user, Release_Year & genres**
+
+Regularization is a fundamental concept in the field of machine learning and statistics, especially when building recommendation and regression models. Its main purpose is to prevent overfitting, that is, when a model fits the training data too well and fails to generalize to new data. 
+
+In general terms, regularization is a technique that penalizes the complexity of the model by adding a penalty term to the cost or error function. This helps to prevent the model from fitting the training data too closely, thereby improving its generalization capability.
+
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE}
+
+# Defining the function to calculate the regularized RMSE
+calculate_rmse <- function(lambda, edx2, testing, mean_rating) {
+  
+  # Calculating the regularized bias of each movie (b_i)
+  movie_bias_reg <- edx2 %>%
+    distinct(userId, movieId, .keep_all = TRUE) %>% 
+    group_by(movieId) %>%
+    summarise(b_i = sum(rating - mean_rating) / (n() + lambda), .groups = 'drop')
+  
+  # Calculating the regularized bias of each user (b_u)
+  user_bias_reg <- edx2 %>%
+    distinct(userId, movieId, .keep_all = TRUE) %>%
+    left_join(movie_bias_reg, by = "movieId") %>% 
+    group_by(userId) %>%
+    summarise(b_u = sum(rating - mean_rating - b_i) / (n() + lambda), .groups = 'drop')
+  
+  # Calculating the regularized bias for Release_Year (b_r)
+  release_year_bias_reg <- edx2 %>%
+    distinct(userId, movieId, .keep_all = TRUE) %>%
+    left_join(movie_bias_reg, by = "movieId") %>% 
+    left_join(user_bias_reg, by = "userId") %>% 
+    group_by(Release_Year) %>%
+    summarise(b_r = sum(rating - mean_rating - b_i - b_u) / (n() + lambda), .groups = 'drop')
+  
+  # Calculating the regularized bias of each genre(b_g)
+  genre_bias_reg <- edx2 %>%
+    distinct(userId, movieId, genres, .keep_all = TRUE) %>%
+    left_join(movie_bias_reg, by = "movieId") %>% 
+    left_join(user_bias_reg, by = "userId") %>% 
+    left_join(release_year_bias_reg, by = "Release_Year") %>% 
+    group_by(genres) %>%
+    summarise(b_g = sum(rating - mean_rating - b_i - b_u - b_r) / (n() + lambda), .groups = 'drop')
+  
+  # Merging the regularized bias - testing
+  testing_reg <- testing %>%
+    distinct(userId, movieId, genres, .keep_all = TRUE) %>%
+    left_join(movie_bias_reg, by = "movieId") %>% 
+    left_join(user_bias_reg, by = "userId") %>% 
+    left_join(release_year_bias_reg, by = "Release_Year") %>% 
+    left_join(genre_bias_reg, by = "genres") %>% 
+    mutate(b_i = ifelse(is.na(b_i), 0, b_i),
+           b_u = ifelse(is.na(b_u), 0, b_u),
+           b_r = ifelse(is.na(b_r), 0, b_r),
+           b_g = ifelse(is.na(b_g), 0, b_g),
+           predicted_rating = mean_rating + b_i + b_u + b_r + b_g)
+  
+  # Calculating the RMSE with the regularized predictions
+  rmse <- sqrt(mean((testing_reg$rating - testing_reg$predicted_rating)^2))
+  
+  return(rmse)
+}
+
+# Calculating global mean of edx2
+mean_rating_edx2 <- edx2 %>%
+  distinct(userId, movieId, .keep_all = TRUE) %>%
+  summarise(mean_rating = mean(rating)) %>% 
+  pull(mean_rating)
+
+# Defining the range of lambda to test
+lambdas <- seq(0, 10, 0.5)
+
+# Calculating the RMSE for each value of lambda
+rmse_results <- sapply(lambdas, calculate_rmse, edx2 = edx2, testing = testing, mean_rating = mean_rating_edx2)
+
+# Creating a dataframe with the results
+rmse_table <- data.frame(
+  Lambda = lambdas,
+  RMSE = rmse_results
+)
+
+# Saving the minimun RMSE in rmse_values
+optimal_lambda <- lambdas[which.min(rmse_results)]
+rmse_values$regularized <- round(min(rmse_results), 5)
+```
+
+\vspace{0.5cm}\RaggedRight
+.- Visualizing the relationship between RMSE and lambda:
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE, fig.width=4, fig.height=3, fig.align="center", fig.pos='H'}
+# Generating the chart RMSE vs Lambda
+ggplot(rmse_table, aes(x = Lambda, y = RMSE)) +
+  geom_line(color = "blue") +
+  geom_point(color = "orange", size = 2) +
+  labs(title = "RMSE vs Lambda",
+       x = "Lambda",
+       y = "RMSE") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+\vspace{0.5cm}\RaggedRight
+.- To find the optimal lambda:
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE}
+
+# Finding the value of lambda that minimizes the RMSE
+optimal_lambda <- lambdas[which.min(rmse_results)]
+
+# Displaying the optimal lambda value and his RMSE
+cat("The optimal value of lambda is:", optimal_lambda, "\n")
+cat("The minimum associated RMSE is:", min(rmse_results), "\n")
+```
+\vspace{0.5cm}\RaggedRight
+.- And now we apply the optimal lambda to the model:
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE}
+# Calculating the regularized bias of each movie (b_i)
+movie_bias_reg_opt <- edx2 %>%
+  distinct(userId, movieId, .keep_all = TRUE) %>% 
+  group_by(movieId) %>%
+  summarise(b_i = sum(rating - mean_rating_edx2) / (n() + optimal_lambda), .groups = 'drop')
+
+# Calculating the regularized bias of each user (b_u)
+user_bias_reg_opt <- edx2 %>%
+  distinct(userId, movieId, .keep_all = TRUE) %>%
+  left_join(movie_bias_reg_opt, by = "movieId") %>% 
+  group_by(userId) %>%
+  summarise(b_u = sum(rating - mean_rating_edx2 - b_i) / (n() + optimal_lambda), .groups = 'drop')
+
+# Calculating the regularized bias for Release_Year (b_r)
+release_year_bias_reg_opt <- edx2 %>%
+  distinct(userId, movieId, .keep_all = TRUE) %>%
+  left_join(movie_bias_reg_opt, by = "movieId") %>% 
+  left_join(user_bias_reg_opt, by = "userId") %>% 
+  group_by(Release_Year) %>%
+  summarise(b_r = sum(rating - mean_rating_edx2 - b_i - b_u) / (n() + optimal_lambda), .groups = 'drop')
+
+# Calculating the regularized bias for genres (b_g)
+genre_bias_reg_opt <- edx2 %>%
+  distinct(userId, movieId, genres, .keep_all = TRUE) %>%
+  left_join(movie_bias_reg_opt, by = "movieId") %>% 
+  left_join(user_bias_reg_opt, by = "userId") %>% 
+  left_join(release_year_bias_reg_opt, by = "Release_Year") %>% 
+  group_by(genres) %>%
+  summarise(b_g = sum(rating - mean_rating_edx2 - b_i - b_u - b_r) / (n() + optimal_lambda), .groups = 'drop')
+
+# Merging the regularized bias - testing
+testing_reg_opt <- testing %>%
+  distinct(userId, movieId, genres, .keep_all = TRUE) %>%
+  left_join(movie_bias_reg_opt, by = "movieId") %>% 
+  left_join(user_bias_reg_opt, by = "userId") %>% 
+  left_join(release_year_bias_reg_opt, by = "Release_Year") %>% 
+  left_join(genre_bias_reg_opt, by = "genres") %>% 
+  mutate(b_i = ifelse(is.na(b_i), 0, b_i),
+         b_u = ifelse(is.na(b_u), 0, b_u),
+         b_r = ifelse(is.na(b_r), 0, b_r),
+         b_g = ifelse(is.na(b_g), 0, b_g),
+         predicted_rating = mean_rating_edx2 + b_i + b_u + b_r + b_g)
+
+# Calculating the finalR MSE final with lambda optimal
+rmse_final <- sqrt(mean((testing_reg_opt$rating - testing_reg_opt$predicted_rating)^2))
+
+# Saving the RMSE in rmse_values
+rmse_values$regularized <- round(rmse_final, 5)
+
+# Displaying final RMSE
+cat("RMSE of final model with optimal lambda is:", rmse_final, "\n")
+```
+\vspace{0.5cm}\RaggedRight
+.- Comparing the obtained RMSE with those from previous models:
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE}
+
+# For to use LaTex, 
+mean_based_val <- round(rmse_values$mean_based, 5)
+movie_effect_val <- round(rmse_values$movie_effect, 5)
+movie_user_effect_val <- round(rmse_values$movie_user_effect, 5)
+movie_user_release_val <- round(rmse_values$movie_user_release_effect, 5)
+genre_effect_val <- round(rmse_values$genre_effect, 5)
+regularized_val <- round(rmse_values$regularized, 5)
+
+```
+
+\vspace{0.5cm}
+\begin{table}[!h]
+\centering
+\fontsize{12}{14}\selectfont
+\begin{tabular}{>{\centering\arraybackslash}p{22em} >{\centering\arraybackslash}p{10em}}
+\toprule
+\cellcolor{blue}{\textcolor{orange}{\textbf{Model}}} & \cellcolor{blue}{\textcolor{orange}{\textbf{RMSE}}} \\
+\midrule
+Mean\_Based Model & `r mean_based_val` \\
+Movie\_Effect Model & `r movie_effect_val` \\
+Movie+User\_Effect Model & `r movie_user_effect_val` \\
+Movie+User\_Release\_Year Model & `r movie_user_release_val` \\
+Movie+User\_Release\_Year+Genre Model & `r genre_effect_val` \\
+Regularized Model & `r regularized_val` \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.5cm}\RaggedRight
+
+It seems that the RMSE barely improves after applying regularization. This type of result can occur under certain circumstances, and here are some possible reasons:
+
+* Already generalized model: It's possible that the original model is already well generalized, meaning it's not overfitting.
+
+* Regularization reduces the values of the effects ($b_i$, $b_u,$ ,  etc.) towards zero. If these effects are already close to zero or if the data is very consistent, regularization will not have a significant impact.
+
+Residuals, that is, the difference between the predicted and actual values, can tell a lot about the model's performance. A residual plot should show a distribution close to zero, without any obvious patterns
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE, fig.width=4, fig.height=3, fig.align="center", warning=FALSE}
+#.- Analyzing  the model´s performance through the distribution of residuals
+# Calculating residuals
+residuals <- testing_clean$rating - testing_clean$predicted_rating
+
+# Density chart
+ggplot(data.frame(residuals), aes(x = residuals)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "orange", color = "black") +
+  geom_density(color = "blue") +
+  labs(title = "Distribution of Residuals",
+       x = "Residuals",
+       y = "Density") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+\vspace{0.5cm}\RaggedRight
+.- The model is doing a good job overall, due to the high concentration of residuals around 0.
+
+## **Matrix factorization**
+In an attempt to improve our model, we will use matrix factorization, which consists of decomposing a large matrix into the product of two (or more) smaller matrices. It is a very useful tool in recommendation models because it allows predictions on missing data, such as ratings that users have not yet given to movies. In general terms, it is a way to reduce the dimensionality of the problem and capture latent patterns in the data.
+$$ A \approx P \times Q^T $$
+where:
+
+\( A \)  is the original matrix: the rows represent the users, the columns represent the movies, and the values in the cells are the ratings that users have given to the movies.
+
+\( P \)  is the matrix of user factors. Each row represents a user, and each column represents a latent factor (a hidden characteristic that affects their ratings).
+
+ \( Q^T \) is the matrix of movie factors. Each row of  \( Q \)  represents a movie, and each column represents how this movie relates to the same latent factors as \( P \)   , and T is simply a notation to indicate that we are using the transposition of the matrix Q so that the dimensions are compatible for multiplication with \( P \)  .
+
+It is important to mention that, due to the lack of processing capacity, I had to reduce the number of dimensions, the number of iterations, and simplify the regularization parameters and learning rate, so the result obtained is not optimal.
+
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Suppressing any unnecessary output
+invisible(capture.output({
+  suppressMessages({
+    suppressWarnings({
+
+      # Converting the data from edx2 into the format required by recosystem (user, item, rating)
+      edx2_recosystem <- edx2 %>%
+        select(userId, movieId, rating)
+
+      # Saving the training data to a file to be used by the recosystem model
+      write.table(edx2_recosystem, file = "edx2_recosystem.txt", sep = " ", row.names = FALSE, col.names = FALSE)
+
+      # Preparing the test set in a similar way
+      testing_recosystem <- testing %>%
+        select(userId, movieId, rating)
+      write.table(testing_recosystem, file = "testing_recosystem.txt", sep = " ", row.names = FALSE, col.names = FALSE)
+
+      # Creating the Reco model object
+      r <- Reco()
+
+      # Reading the training set
+      train_set <- data_file("edx2_recosystem.txt")
+
+      # Reading the test set
+      test_set <- data_file("testing_recosystem.txt")
+
+      # Tuning the matrix factorization model to find optimal hyperparameters
+      # Reducing number of iterations (niter) and dimensions (dim) to speed up the process
+      opts <- r$tune(train_set, opts = list(dim = c(10, 20), lrate = c(0.1), costp_l2 = c(0.1), costq_l2 = c(0.1), nthread = 2, niter = 5))
+
+      # Trainning the model with the best parameters found, further reducing iterations
+      r$train(train_set, opts = c(opts$min, niter = 10))
+
+      # Creating a temporary file for storing predictions
+      pred_file <- tempfile()
+
+      # Making predictions on the test set
+      r$predict(test_set, out_file(pred_file))
+
+      # Reading the predictions
+      predictions <- scan(pred_file)
+
+      # Adding predictions to the testing set
+      testing_predictions <- testing
+      testing_predictions$predicted_rating <- predictions
+
+      # Calculating RMSE for the matrix factorization model
+      rmse_factorization <- sqrt(mean((testing_predictions$rating - testing_predictions$predicted_rating)^2))
+
+      # Saving the RMSE of the matrix factorization model in rmse_values
+      rmse_values$factorization <- round(rmse_factorization, 5)
+
+      # Displaying the RMSE of the new model
+      cat("The RMSE of the matrix factorization model is:", round(rmse_factorization, 5), "\n")
+
+      # Cleanning up temporary files
+      file.remove("edx2_recosystem.txt", "testing_recosystem.txt", pred_file)
+
+    })
+  })
+}))
+
+# Formatting the rounded RMSE values to text to use them in the LaTeX table
+mean_based_val <- round(rmse_values$mean_based, 5)
+movie_effect_val <- round(rmse_values$movie_effect, 5)
+movie_user_effect_val <- round(rmse_values$movie_user_effect, 5)
+movie_user_release_val <- round(rmse_values$movie_user_release_effect, 5)
+genre_effect_val <- round(rmse_values$genre_effect, 5)
+regularized_val <- round(rmse_values$regularized, 5)
+factorization_val <- round(rmse_values$factorization, 5)
+
+```
+
+\vspace{0.5cm}
+\begin{table}[!h]
+\centering
+\fontsize{12}{14}\selectfont
+\begin{tabular}{>{\centering\arraybackslash}p{22em} >{\centering\arraybackslash}p{10em}}
+\toprule
+\cellcolor{blue}{\textcolor{orange}{\textbf{Model}}} & \cellcolor{blue}{\textcolor{orange}{\textbf{RMSE}}} \\
+\midrule
+Mean\_Based Model & `r mean_based_val` \\
+Movie\_Effect Model & `r movie_effect_val` \\
+Movie+User\_Effect Model & `r movie_user_effect_val` \\
+Movie+User\_Release\_Year Model & `r movie_user_release_val` \\
+Movie+User\_Release\_Year+Genre Model & `r genre_effect_val` \\
+Regularized Model & `r regularized_val` \\
+Matrix Factorization Model & `r factorization_val` \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\vspace{0.5cm}\RaggedRight
+## **Final validation**
+Once we have reached our best model using the edx partitions (edx2 and testing), as described at the beginning of our report, we need to validate the final model with the datasets into which the original MovieLens 10M dataset was divided, which are edx and final_holdout_test.
+
+\vspace{0.5cm}
+```{r cache=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Suppressing any unnecessary output
+invisible(capture.output({
+  suppressMessages({
+    suppressWarnings({
+
+      # Converting the data from edx and final_holdout_test into the required format for recosystem (user, item, rating)
+      edx_recosystem <- edx %>%
+        select(userId, movieId, rating)
+
+      final_holdout_test_recosystem <- final_holdout_test %>%
+        select(userId, movieId, rating)
+
+      # Saving the data to temporary files to pass them to the model
+      write.table(edx_recosystem, file = "edx_recosystem.txt", sep = " ", row.names = FALSE, col.names = FALSE)
+      write.table(final_holdout_test_recosystem, file = "final_holdout_test_recosystem.txt", sep = " ", row.names = FALSE, col.names = FALSE)
+
+      # Creating the model object and loading the data
+      r <- Reco()
+
+      # Reading training data (edx)
+      train_set <- data_file("edx_recosystem.txt")
+
+      # Reading testing data (final_holdout_test)
+      test_set <- data_file("final_holdout_test_recosystem.txt")
+
+      # Fitting the model with the best hyperparameters found during the factorization phase
+      r$train(train_set, opts = c(opts$min, niter = 10))
+
+      # Creating a temp file for predictions
+      pred_file <- tempfile()
+
+      # Making predictions
+      r$predict(test_set, out_file(pred_file))
+
+      # Reading predictions
+      final_predictions <- scan(pred_file)
+
+      # Adding predictions to final_holdout_test
+      final_holdout_test_predictions <- final_holdout_test
+      final_holdout_test_predictions$predicted_rating <- final_predictions
+
+      # Calculating RMSE for final validation
+      rmse_final_validation <- sqrt(mean((final_holdout_test_predictions$rating - final_holdout_test_predictions$predicted_rating)^2))
+
+      # Displaying the RMSE for the final validation
+      cat("The RMSE of the matrix factorization model is:", round(rmse_final_validation, 5), "\n")
+
+      # Cleaning up temp files
+      file.remove("edx_recosystem.txt", "final_holdout_test_recosystem.txt", pred_file)
+
+      # Storing RMSE of final validation in rmse_values
+      rmse_values$final_validation <- round(rmse_final_validation, 5)
+      
+    })
+  })
+}))
+
+# Formatting the RMSE values for LaTeX
+mean_based_val <- round(rmse_values$mean_based, 5)
+movie_effect_val <- round(rmse_values$movie_effect, 5)
+movie_user_effect_val <- round(rmse_values$movie_user_effect, 5)
+movie_user_release_val <- round(rmse_values$movie_user_release_effect, 5)
+genre_effect_val <- round(rmse_values$genre_effect, 5)
+regularized_val <- round(rmse_values$regularized, 5)
+factorization_val <- round(rmse_values$factorization, 5)
+final_validation_val <- round(rmse_values$final_validation, 5)
+
+```
+
+\vspace{0.5cm}
+\begin{table}[!h]
+\centering
+\fontsize{12}{14}\selectfont
+\begin{tabular}{>{\centering\arraybackslash}p{22em} >{\centering\arraybackslash}p{10em}}
+\toprule
+\cellcolor{blue}{\textcolor{orange}{\textbf{Model}}} & \cellcolor{blue}{\textcolor{orange}{\textbf{RMSE}}} \\
+\midrule
+Mean\_Based Model & `r mean_based_val` \\
+Movie\_Effect Model & `r movie_effect_val` \\
+Movie+User\_Effect Model & `r movie_user_effect_val` \\
+Movie+User\_Release\_Year Model & `r movie_user_release_val` \\
+Movie+User\_Release\_Year+Genre Model & `r genre_effect_val` \\
+Regularized Model & `r regularized_val` \\
+Matrix Factorization Model & `r factorization_val` \\
+Final Validation & `r final_validation_val` \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.5cm}\RaggedRight
+# **CONCLUSIONS**
+The development of a movie recommendation system using the MovieLens 10M dataset has followed an incremental approach, testing various models and adjusting parameters to achieve the goal of minimizing the Root Mean Squared Error (RMSE). 
+
+Throughout this process, we have gone through different stages that included simple models based on the average, the introduction of specific effects (movies, users, release years, and genres), regularization, and finally matrix factorization. Below, we summarize the most relevant points of the project, highlighting its limitations and proposing possible improvements for future work.
+
+
+## **Summary of the Report**
+
+* We began with a thorough analysis of the dataset, examining the characteristics of the variables, the distribution of ratings, and potential biases related to users, movies, and genres.
+
+ * A basic model based on the average of all ratings was tested, which resulted in a very high RMSE.
+
+* As we added movie and user effects, considerable improvements in the model's accuracy were observed.
+
+* We incorporated release year and genre effects, which further reduced the RMSE, although less significantly.
+
+* Subsequently, regularization was introduced, a key technique to prevent overfitting, improving the model's generalization.
+
+* To further enhance the model, we implemented a matrix factorization model, which allowed us to capture latent interactions between users and movies, achieving notable results in reducing the RMSE.
+
+* The model validation was performed using the final_holdout_ test dataset, confirming that our final model met the goal of achieving an RMSE lower than 0.8649.
+
+
+## **Limitations**
+
+* Computational Capacity: During the implementation of the matrix factorization model, it was necessary to reduce the dimensions, iterations, and simplify the parameters due to computational limitations. This may have affected the ability to achieve an optimal model.
+
+* Model Complexity: As we added more effects (users, movies, release year, and genres), the complexity of the model increased. Although we achieved improved accuracy, the difference in RMSE was smaller in the later iterations, suggesting that the marginal improvement decreases with each new parameter.
+
+* Limited Regularization: While regularization helped reduce overfitting, the benefits obtained were smaller than expected, indicating that our model was already well-generalized before applying this technique.
+
+
+## **Future Work**
+
+* Matrix Factorization Optimization: With greater processing capacity, more hyperparameter combinations and iterations could be explored in the matrix factorization model. This could result in a more accurate model, fully leveraging this advanced technique.
+
+
+* Incorporation of Additional Data: The current model does not include detailed temporal information or potential interactions between genres or users that vary over time. Exploring additional temporal factors, such as the popularity trends of certain genres or movies based on their age, could enrich the model.
+
+
+* Implementation of Neural Networks: The use of neural networks or deep learning models could be explored, as they are often very effective in recommendation systems. These models have the ability to capture more complex nonlinear interactions between users and movies.
+
+
+In summary, the project achieved its goal of developing an effective recommendation system with a satisfactory RMSE. However, there is room for improvement in areas such as computational processing optimization and the incorporation of more sophisticated models. These steps would allow for the development of an even more robust and adaptable system for different types of users and movies.
+
+# **REFERENCES**
+
+1. Rafael A. Irizarry. (2019). *[Introduction to Data Science: Data Analysis and Prediction Algorithms with R](https://rafalab.github.io/dsbook)*.
+
+2. Zhu, Hao. (2021). *kableExtra: Construct Complex Table with 'kable' and Pipe Syntax*. R package version 1.3.4.
+
+3. González, Javier. (2017). *Building a Recommendation System with R*.
+
+4. Koren, Yehuda, Robert Bell, and Chris Volinsky. (2009). *Matrix Factorization Techniques for Recommender Systems*. *Computer*, 42(8), 30-37.
+
+5. *LaTeX Wikibook*. Retrieved from [https://en.wikibooks.org/wiki/LaTeX](https://en.wikibooks.org/wiki/LaTeX).
+
